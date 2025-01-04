@@ -1,3 +1,5 @@
+import { saveDebugData } from './debug';
+
 export class JellyfinError extends Error {
     constructor(message: string, public statusCode?: number) {
         super(message);
@@ -70,6 +72,9 @@ export const getUserLibraries = async (api: JellyfinApi, userId: string) => {
             throw new JellyfinError('No libraries found');
         }
 
+        // Save debug data
+        await saveDebugData('libraries', data.Items);
+
         return data.Items;
     } catch (error: any) {
         console.error('Error fetching libraries:', error);
@@ -105,6 +110,10 @@ export const getLatestMedia = async (api: JellyfinApi, userId: string, parentId:
         }
 
         const data = await response.json();
+        
+        // Save debug data
+        await saveDebugData(`latest_media_${parentId}`, data.Items || []);
+
         return data.Items || [];
     } catch (error: any) {
         console.error('Error fetching latest media:', error);
@@ -158,6 +167,10 @@ export const getItemDetails = async (api: JellyfinApi, itemId: string, userId: s
         }
 
         const data = await response.json();
+        
+        // Save debug data
+        await saveDebugData(`item_details_${itemId}`, data);
+
         return data;
     } catch (error: any) {
         console.error('Error fetching item details:', error);
@@ -188,6 +201,10 @@ export const getSeasons = async (api: JellyfinApi, showId: string, userId: strin
         }
 
         const data = await response.json();
+        
+        // Save debug data
+        await saveDebugData(`seasons_${showId}`, data.Items || []);
+
         return data.Items || [];
     } catch (error: any) {
         console.error('Error fetching seasons:', error);
@@ -219,6 +236,10 @@ export const getEpisodes = async (api: JellyfinApi, seasonId: string, userId: st
         }
 
         const data = await response.json();
+        
+        // Save debug data
+        await saveDebugData(`episodes_${seasonId}`, data.Items || []);
+
         return data.Items || [];
     } catch (error: any) {
         console.error('Error fetching episodes:', error);

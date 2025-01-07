@@ -36,6 +36,12 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     const previewVideoRef = useRef<HTMLVideoElement>(null);
     const previewCache = useRef<Map<number, string>>(new Map());
     const [containerWidth, setContainerWidth] = useState(0);
+    const [isMoving, setIsMoving] = useState(false);
+    const lastPositionRef = useRef<number | null>(null);
+    const lastMoveTimeRef = useRef<number>(Date.now());
+    const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const MOVEMENT_THRESHOLD = 5; // pixels
+    const TIME_THRESHOLD = 200; // milliseconds
 
     useEffect(() => {
         const previewVideo = previewVideoRef.current;
@@ -140,6 +146,8 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         const rect = progressRef.current.getBoundingClientRect();
         const pos = (e.clientX - rect.left) / rect.width;
         const time = pos * duration;
+        const newPosition = e.clientX - rect.left;
+        const currentTime = Date.now();
         
         // Clear the current preview
         const canvas = previewCanvasRef.current;
@@ -149,8 +157,44 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         }
         
         onPreviewTimeChange(time);
-        onPreviewPositionChange(e.clientX - rect.left);
+        onPreviewPositionChange(newPosition);
         debouncedSeek(time);
+
+        // Check if we're at the boundaries
+        const isAtBoundary = newPosition <= 160 || newPosition >= (containerWidth - 160);
+        
+        if (!isAtBoundary) {
+            // Calculate movement distance and time
+            const distance = lastPositionRef.current !== null ? Math.abs(newPosition - lastPositionRef.current) : 0;
+            const timeSinceLastMove = currentTime - lastMoveTimeRef.current;
+            
+            // Clear any existing timeout
+            if (moveTimeoutRef.current) {
+                clearTimeout(moveTimeoutRef.current);
+            }
+
+            // If there's significant movement, hide preview and update last move time
+            if (distance > MOVEMENT_THRESHOLD) {
+                setIsMoving(true);
+                lastMoveTimeRef.current = currentTime;
+            }
+            
+            // Set timeout to show preview after pause
+            moveTimeoutRef.current = setTimeout(() => {
+                const currentDistance = lastPositionRef.current !== null ? 
+                    Math.abs(newPosition - lastPositionRef.current) : 0;
+                    
+                // Only show if we haven't moved significantly recently
+                if (currentDistance <= MOVEMENT_THRESHOLD) {
+                    setIsMoving(false);
+                }
+            }, TIME_THRESHOLD);
+        } else {
+            setIsMoving(false);
+        }
+
+        // Update last position
+        lastPositionRef.current = newPosition;
     };
 
     // Add resize observer to track container width
@@ -168,6 +212,15 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         return () => resizeObserver.disconnect();
     }, []);
 
+    // Clean up timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (moveTimeoutRef.current) {
+                clearTimeout(moveTimeoutRef.current);
+            }
+        };
+    }, []);
+
     return (
         <div className="mb-4">
             <div 
@@ -175,7 +228,10 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                 className="relative h-1 bg-white/30 cursor-pointer"
                 onClick={handleProgressClick}
                 onMouseMove={!isPlaying ? handleProgressHover : undefined}
-                onMouseLeave={() => onPreviewTimeChange(null)}
+                onMouseLeave={() => {
+                    onPreviewTimeChange(null);
+                    setIsMoving(false);
+                }}
             >
                 {/* Progress */}
                 <div 
@@ -208,7 +264,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                 {/* Preview thumbnail */}
                 {!isPlaying && previewTime !== null && (
                     <div 
-                        className="absolute bg-black/60 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg"
+                        className={`absolute bg-black/60 backdrop-blur-sm rounded-lg overflow-visible`}
                         style={{ 
                             left: Math.min(
                                 Math.max(160, previewPosition),
@@ -216,10 +272,18 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                             ),
                             bottom: '16px',
                             transform: 'translateX(-50%)',
-                            width: 'min(320px, 30vw)'
+                            width: 'min(320px, 30vw)',
+                            boxShadow: '0 0 10px 2px rgba(99, 102, 241, 0.3)',
+                            zIndex: 20
                         }}
                     >
-                        <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                        <div 
+                            className="relative w-full transition-[height] duration-150 overflow-hidden"
+                            style={{ 
+                                height: isMoving ? '0' : '180px',
+                                opacity: isMoving ? 0.5 : 1
+                            }}
+                        >
                             <canvas
                                 ref={previewCanvasRef}
                                 width="320"
@@ -227,9 +291,20 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                                 className="absolute inset-0 w-full h-full"
                             />
                         </div>
-                        <div className="text-white text-sm px-3 py-2 text-center">
+                        <div className="text-white text-sm px-3 py-2 text-center bg-black/60">
                             {formatTime(previewTime)}
                         </div>
+                        {/* Triangle indicator */}
+                        <div 
+                            className="absolute left-1/2 -bottom-2 w-4 h-2 -translate-x-1/2"
+                            style={{
+                                borderLeft: '8px solid transparent',
+                                borderRight: '8px solid transparent',
+                                borderTop: '8px solid rgba(0, 0, 0, 0.6)',
+                                filter: 'drop-shadow(0 0 4px rgba(99, 102, 241, 0.3))',
+                                zIndex: 21
+                            }}
+                        />
                     </div>
                 )}
             </div>

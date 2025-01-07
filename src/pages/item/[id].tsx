@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { createApi, getItemDetails, getSeasons, getEpisodes, getImageUrl, getStreamUrl, getLowestQualityStreamUrl, formatRuntime, JellyfinError } from '@/utils/jellyfin';
 import { VideoPlayer } from '../../components/video/VideoPlayer';
+import { CaptionIndicator } from '../../components/video/CaptionIndicator';
 
 interface Person {
     Id: string;
@@ -371,11 +372,11 @@ export default function ItemDetail() {
                                 <div className="flex items-start justify-between">
                                     <div>
                                         {api && item?.ImageTags?.Logo ? (
-                                            <div className="max-w-[200px] max-h-[60px] mb-4">
+                                            <div className="max-w-[300px] h-[60px] mb-4 flex items-center">
                                                 <img
                                                     src={getImageUrl(api, item.Id, 'Logo' as 'Primary')}
                                                     alt={item.Name}
-                                                    className="w-full h-full object-contain filter drop-shadow-lg"
+                                                    className="max-h-full w-auto object-contain filter drop-shadow-lg"
                                                 />
                                             </div>
                                         ) : (
@@ -385,6 +386,8 @@ export default function ItemDetail() {
                                             {item?.ProductionYear && <span>{item.ProductionYear}</span>}
                                             {item?.RunTimeTicks && <span>{formatRuntime(item.RunTimeTicks)}</span>}
                                             {item?.OfficialRating && <span>{item.OfficialRating}</span>}
+                                            {console.log('Item data:', item)}
+                                            <CaptionIndicator mediaStreams={item?.MediaStreams} />
                                         </div>
                                         {item?.Genres && (
                                             <div className="mt-2 text-sm">

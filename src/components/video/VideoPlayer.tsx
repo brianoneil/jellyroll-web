@@ -14,6 +14,8 @@ interface VideoPlayerProps {
 const VOLUME_STORAGE_KEY = 'jellyroll_player_volume';
 const PREVIOUS_VOLUME_STORAGE_KEY = 'jellyroll_player_previous_volume';
 const SHOW_CHAPTERS_STORAGE_KEY = 'jellyroll_player_show_chapters';
+const CAPTION_TRACK_STORAGE_KEY = 'jellyroll_player_caption_track';
+const CAPTIONS_ENABLED_STORAGE_KEY = 'jellyroll_player_captions_enabled';
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) => {
     const [isControlsVisible, setIsControlsVisible] = useState(true);
@@ -36,6 +38,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) 
         const storedShowChapters = localStorage.getItem(SHOW_CHAPTERS_STORAGE_KEY);
         return storedShowChapters !== null ? storedShowChapters === 'true' : true;
     });
+    const [showCaptions, setShowCaptions] = useState(() => {
+        return localStorage.getItem(CAPTIONS_ENABLED_STORAGE_KEY) === 'true';
+    });
+    const [availableTracks, setAvailableTracks] = useState<TextTrack[]>([]);
+    const [selectedTrack, setSelectedTrack] = useState<string>(() => {
+        return localStorage.getItem(CAPTION_TRACK_STORAGE_KEY) || '';
+    });
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -56,6 +65,64 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) 
     useEffect(() => {
         localStorage.setItem(SHOW_CHAPTERS_STORAGE_KEY, showChapterMarkers.toString());
     }, [showChapterMarkers]);
+
+    // Save caption enabled state
+    useEffect(() => {
+        localStorage.setItem(CAPTIONS_ENABLED_STORAGE_KEY, showCaptions.toString());
+    }, [showCaptions]);
+
+    // Load captions when video loads
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const handleTracksChange = () => {
+            console.log('Track change event fired');
+            const tracks = Array.from(video.textTracks);
+            console.log('Available tracks:', tracks);
+            
+            // Disable all tracks initially
+            tracks.forEach(track => {
+                console.log('Setting track mode to hidden:', track.label);
+                track.mode = 'disabled';
+            });
+
+            setAvailableTracks(tracks);
+
+            // Enable selected track if it exists and captions are enabled
+            if (selectedTrack && showCaptions) {
+                const track = tracks.find(t => t.label === selectedTrack);
+                if (track) {
+                    console.log('Enabling selected track:', track.label);
+                    track.mode = 'showing';
+                }
+            }
+        };
+
+        // Add cue change listener to log when captions are actually displayed
+        const handleCueChange = (event: Event) => {
+            const track = event.target as TextTrack;
+            console.log('Cue change in track:', track.label);
+            console.log('Active cues:', track.activeCues);
+        };
+
+        video.textTracks.addEventListener('cuechange', handleCueChange);
+        video.addEventListener('loadedmetadata', handleTracksChange);
+
+        return () => {
+            video.textTracks.removeEventListener('cuechange', handleCueChange);
+            video.removeEventListener('loadedmetadata', handleTracksChange);
+        };
+    }, [selectedTrack, showCaptions]);
+
+    // Save caption track preference
+    useEffect(() => {
+        if (selectedTrack) {
+            localStorage.setItem(CAPTION_TRACK_STORAGE_KEY, selectedTrack);
+        } else {
+            localStorage.removeItem(CAPTION_TRACK_STORAGE_KEY);
+        }
+    }, [selectedTrack]);
 
     const updateControlsVisibility = () => {
         setIsControlsVisible(true);
@@ -151,6 +218,66 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) 
         }
     };
 
+    const handleCaptionToggle = () => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        console.log('Toggling captions, current state:', showCaptions);
+        console.log('Current tracks:', Array.from(video.textTracks));
+
+        if (!showCaptions) {
+            // If turning on captions, try to restore the last selected track
+            if (selectedTrack) {
+                const track = Array.from(video.textTracks).find(t => t.label === selectedTrack);
+                if (track) {
+                    console.log('Restoring previous track:', track.label);
+                    Array.from(video.textTracks).forEach(t => {
+                        t.mode = 'disabled';
+                    });
+                    track.mode = 'showing';
+                    setShowCaptions(true);
+                    return;
+                }
+            }
+            // If no track was previously selected, use the first available track
+            const firstTrack = video.textTracks[0];
+            if (firstTrack) {
+                console.log('Using first available track:', firstTrack.label);
+                firstTrack.mode = 'showing';
+                setSelectedTrack(firstTrack.label);
+                setShowCaptions(true);
+            }
+        } else {
+            // Turn off all tracks
+            console.log('Disabling all tracks');
+            Array.from(video.textTracks).forEach(track => {
+                track.mode = 'disabled';
+            });
+            setShowCaptions(false);
+        }
+    };
+
+    const handleTrackSelect = (trackLabel: string) => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        console.log('Selecting track:', trackLabel);
+
+        // Disable all tracks first
+        Array.from(video.textTracks).forEach(track => {
+            track.mode = 'disabled';
+        });
+
+        // Enable selected track
+        const selectedTrack = Array.from(video.textTracks).find(t => t.label === trackLabel);
+        if (selectedTrack) {
+            console.log('Enabling track:', selectedTrack.label);
+            selectedTrack.mode = 'showing';
+            setSelectedTrack(trackLabel);
+            setShowCaptions(true);
+        }
+    };
+
     return (
         <div 
             ref={containerRef}
@@ -170,17 +297,53 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) 
                     togglePlay();
                 }}
             >
-                <video
-                    ref={videoRef}
-                    className="w-full h-full"
-                    autoPlay
-                    crossOrigin="anonymous"
-                    src={getStreamUrl(api, item.Id)}
-                    onSeeking={() => setIsSeeking(true)}
-                    onSeeked={() => setIsSeeking(false)}
-                    onLoadStart={() => setIsLoading(true)}
-                    onCanPlay={() => setIsLoading(false)}
-                />
+                <div className="relative w-full h-full">
+                    <video
+                        ref={videoRef}
+                        className="w-full h-full"
+                        autoPlay
+                        crossOrigin="anonymous"
+                        src={getStreamUrl(api, item.Id)}
+                        onSeeking={() => setIsSeeking(true)}
+                        onSeeked={() => setIsSeeking(false)}
+                        onLoadStart={() => setIsLoading(true)}
+                        onCanPlay={() => setIsLoading(false)}
+                        onError={(e) => console.error('Video error:', e)}
+                    >
+                        {/* Add caption tracks */}
+                        {item.MediaStreams?.filter(stream => 
+                            stream.Type === 'Subtitle'
+                        ).map((stream, index) => {
+                            console.log('Adding track:', stream);
+                            // Use the correct Jellyfin API endpoint format for subtitles
+                            const trackUrl = `${api.baseUrl}/Videos/${item.Id}/${item.MediaSources?.[0]?.Id || 0}/Subtitles/${stream.Index}/Stream.vtt?api_key=${api.accessToken}`;
+                            
+                            console.log('Track URL:', trackUrl);
+                            
+                            return (
+                                <track
+                                    key={index}
+                                    kind="subtitles"
+                                    src={trackUrl}
+                                    label={stream.DisplayTitle || stream.Language || `Track ${index + 1}`}
+                                    srcLang={stream.Language || 'und'}
+                                    default={index === 0 && showCaptions}
+                                />
+                            );
+                        })}
+                    </video>
+                    <style jsx>{`
+                        video::cue {
+                            background-color: rgba(0, 0, 0, 0.8);
+                            color: white;
+                            font-family: sans-serif;
+                            font-size: 1.2em;
+                            line-height: 1.2;
+                            white-space: pre-line;
+                            text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.5);
+                        }
+                    `}</style>
+                </div>
 
                 {(isLoading || isSeeking) && <LoadingOverlay />}
                 
@@ -231,6 +394,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) 
                     onToggleFullscreen={toggleFullscreen}
                     api={api}
                     itemId={item.Id}
+                    showCaptions={showCaptions}
+                    availableTracks={availableTracks}
+                    selectedTrack={selectedTrack}
+                    onCaptionToggle={handleCaptionToggle}
+                    onTrackSelect={handleTrackSelect}
                 />
             </div>
         </div>

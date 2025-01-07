@@ -6,6 +6,7 @@ import { TimeDisplay } from './TimeDisplay';
 import { VolumeControl } from './VolumeControl';
 import { PlayPauseButton } from './PlayPauseButton';
 import { FullscreenButton } from './FullscreenButton';
+import { CaptionControl } from './CaptionControl';
 
 interface VideoControlsProps {
     isVisible: boolean;
@@ -16,12 +17,17 @@ interface VideoControlsProps {
     isFullscreen: boolean;
     chapters?: Chapter[];
     showChapterMarkers: boolean;
+    showCaptions: boolean;
+    availableTracks: TextTrack[];
+    selectedTrack: string;
     onTimeUpdate: (time: number) => void;
     onVolumeChange: (volume: number) => void;
     onVolumeMuteToggle: () => void;
     onTogglePlay: () => void;
     onToggleFullscreen: () => void;
     onToggleChapterMarkers: () => void;
+    onCaptionToggle: () => void;
+    onTrackSelect: (trackLabel: string) => void;
     api: JellyfinApi;
     itemId: string;
 }
@@ -35,12 +41,17 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
     isFullscreen,
     chapters,
     showChapterMarkers,
+    showCaptions,
+    availableTracks,
+    selectedTrack,
     onTimeUpdate,
     onVolumeChange,
     onVolumeMuteToggle,
     onTogglePlay,
     onToggleFullscreen,
     onToggleChapterMarkers,
+    onCaptionToggle,
+    onTrackSelect,
     api,
     itemId
 }) => {
@@ -88,6 +99,14 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
                         volume={volume}
                         onChange={onVolumeChange}
                         onMuteToggle={onVolumeMuteToggle}
+                    />
+
+                    <CaptionControl
+                        showCaptions={showCaptions}
+                        availableTracks={availableTracks}
+                        selectedTrack={selectedTrack}
+                        onCaptionToggle={onCaptionToggle}
+                        onTrackSelect={onTrackSelect}
                     />
 
                     {chapters && chapters.length > 0 && (

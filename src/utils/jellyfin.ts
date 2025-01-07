@@ -7,7 +7,7 @@ export class JellyfinError extends Error {
     }
 }
 
-interface JellyfinApi {
+export interface JellyfinApi {
     baseUrl: string;
     accessToken?: string;
 }

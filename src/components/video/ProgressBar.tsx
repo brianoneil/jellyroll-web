@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { JellyfinApi, getLowestQualityStreamUrl } from '../../utils/jellyfin';
 import { Chapter } from '../../types/jellyfin';
 
@@ -35,6 +35,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     const previewCanvasRef = useRef<HTMLCanvasElement>(null);
     const previewVideoRef = useRef<HTMLVideoElement>(null);
     const previewCache = useRef<Map<number, string>>(new Map());
+    const [containerWidth, setContainerWidth] = useState(0);
 
     useEffect(() => {
         const previewVideo = previewVideoRef.current;
@@ -152,6 +153,21 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         debouncedSeek(time);
     };
 
+    // Add resize observer to track container width
+    useEffect(() => {
+        if (!progressRef.current) return;
+        
+        const resizeObserver = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                setContainerWidth(entry.contentRect.width);
+            }
+        });
+        
+        resizeObserver.observe(progressRef.current);
+        
+        return () => resizeObserver.disconnect();
+    }, []);
+
     return (
         <div className="mb-4">
             <div 
@@ -194,7 +210,10 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                     <div 
                         className="absolute bg-black/60 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg"
                         style={{ 
-                            left: `${previewPosition}px`,
+                            left: Math.min(
+                                Math.max(160, previewPosition),
+                                containerWidth - 160
+                            ),
                             bottom: '16px',
                             transform: 'translateX(-50%)',
                             width: 'min(320px, 30vw)'

@@ -6,6 +6,7 @@ interface ProgressBarProps {
     currentTime: number;
     duration: number;
     chapters?: Chapter[];
+    showChapterMarkers: boolean;
     onTimeUpdate: (time: number) => void;
     onPreviewTimeChange: (time: number | null) => void;
     onPreviewPositionChange: (position: number) => void;
@@ -20,6 +21,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     currentTime,
     duration,
     chapters,
+    showChapterMarkers,
     onTimeUpdate,
     onPreviewTimeChange,
     onPreviewPositionChange,
@@ -166,7 +168,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                 />
                 
                 {/* Chapter Markers */}
-                {chapters?.map((chapter, index) => {
+                {showChapterMarkers && chapters?.map((chapter, index) => {
                     const position = (chapter.StartPositionTicks / (duration * 10000000)) * 100;
                     return (
                         <div

@@ -11,24 +11,57 @@ interface VideoPlayerProps {
     onClose: () => void;
 }
 
+const VOLUME_STORAGE_KEY = 'jellyroll_player_volume';
+const PREVIOUS_VOLUME_STORAGE_KEY = 'jellyroll_player_previous_volume';
+const SHOW_CHAPTERS_STORAGE_KEY = 'jellyroll_player_show_chapters';
+
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) => {
     const [isControlsVisible, setIsControlsVisible] = useState(true);
-    const [controlsTimer, setControlsTimer] = useState<NodeJS.Timeout | null>(null);
+    const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [volume, setVolume] = useState(1);
+    const [volume, setVolume] = useState(() => {
+        const storedVolume = localStorage.getItem(VOLUME_STORAGE_KEY);
+        return storedVolume ? parseFloat(storedVolume) : 1;
+    });
+    const [previousVolume, setPreviousVolume] = useState(() => {
+        const storedPrevVolume = localStorage.getItem(PREVIOUS_VOLUME_STORAGE_KEY);
+        return storedPrevVolume ? parseFloat(storedPrevVolume) : 1;
+    });
     const [isSeeking, setIsSeeking] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isVideoPlaying, setIsVideoPlaying] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
+    const [showChapterMarkers, setShowChapterMarkers] = useState(() => {
+        const storedShowChapters = localStorage.getItem(SHOW_CHAPTERS_STORAGE_KEY);
+        return storedShowChapters !== null ? storedShowChapters === 'true' : true;
+    });
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    // Save volume changes to storage
+    useEffect(() => {
+        localStorage.setItem(VOLUME_STORAGE_KEY, volume.toString());
+        if (videoRef.current) {
+            videoRef.current.volume = volume;
+        }
+    }, [volume]);
+
+    // Save previous volume to storage
+    useEffect(() => {
+        localStorage.setItem(PREVIOUS_VOLUME_STORAGE_KEY, previousVolume.toString());
+    }, [previousVolume]);
+
+    // Save chapter markers visibility to storage
+    useEffect(() => {
+        localStorage.setItem(SHOW_CHAPTERS_STORAGE_KEY, showChapterMarkers.toString());
+    }, [showChapterMarkers]);
 
     const updateControlsVisibility = () => {
         setIsControlsVisible(true);
         
-        if (controlsTimer) {
-            clearTimeout(controlsTimer);
+        if (controlsTimerRef.current) {
+            clearTimeout(controlsTimerRef.current);
         }
         
         const timer = setTimeout(() => {
@@ -37,7 +70,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) 
             }
         }, 3000);
         
-        setControlsTimer(timer);
+        controlsTimerRef.current = timer;
     };
 
     useEffect(() => {
@@ -58,11 +91,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) 
             video.removeEventListener('durationchange', durationChange);
             video.removeEventListener('play', playStateChange);
             video.removeEventListener('pause', playStateChange);
-            if (controlsTimer) {
-                clearTimeout(controlsTimer);
+            if (controlsTimerRef.current) {
+                clearTimeout(controlsTimerRef.current);
             }
         };
-    }, [controlsTimer]);
+    }, []);
 
     useEffect(() => {
         const handleFullscreenChange = () => {
@@ -77,8 +110,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) 
 
     const handleVolumeChange = (newVolume: number) => {
         setVolume(newVolume);
-        if (videoRef.current) {
-            videoRef.current.volume = newVolume;
+        if (newVolume > 0) {
+            setPreviousVolume(newVolume);
+        }
+    };
+
+    const handleVolumeMuteToggle = () => {
+        if (volume > 0) {
+            setPreviousVolume(volume);
+            setVolume(0);
+        } else {
+            setVolume(previousVolume);
         }
     };
 
@@ -180,8 +222,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) 
                     isPlaying={isVideoPlaying}
                     isFullscreen={isFullscreen}
                     chapters={item.Chapters}
+                    showChapterMarkers={showChapterMarkers}
+                    onToggleChapterMarkers={() => setShowChapterMarkers(prev => !prev)}
                     onTimeUpdate={handleTimeUpdate}
                     onVolumeChange={handleVolumeChange}
+                    onVolumeMuteToggle={handleVolumeMuteToggle}
                     onTogglePlay={togglePlay}
                     onToggleFullscreen={toggleFullscreen}
                     api={api}

@@ -15,10 +15,13 @@ interface VideoControlsProps {
     isPlaying: boolean;
     isFullscreen: boolean;
     chapters?: Chapter[];
+    showChapterMarkers: boolean;
     onTimeUpdate: (time: number) => void;
     onVolumeChange: (volume: number) => void;
+    onVolumeMuteToggle: () => void;
     onTogglePlay: () => void;
     onToggleFullscreen: () => void;
+    onToggleChapterMarkers: () => void;
     api: JellyfinApi;
     itemId: string;
 }
@@ -31,10 +34,13 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
     isPlaying,
     isFullscreen,
     chapters,
+    showChapterMarkers,
     onTimeUpdate,
     onVolumeChange,
+    onVolumeMuteToggle,
     onTogglePlay,
     onToggleFullscreen,
+    onToggleChapterMarkers,
     api,
     itemId
 }) => {
@@ -51,6 +57,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
                 currentTime={currentTime}
                 duration={duration}
                 chapters={chapters}
+                showChapterMarkers={showChapterMarkers}
                 onTimeUpdate={onTimeUpdate}
                 onPreviewTimeChange={setPreviewTime}
                 onPreviewPositionChange={setPreviewPosition}
@@ -61,23 +68,58 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
                 previewPosition={previewPosition}
             />
 
-            <div className="flex items-center space-x-4">
-                <PlayPauseButton
-                    isPlaying={isPlaying}
-                    onToggle={onTogglePlay}
-                />
+            <div className="flex items-center justify-between">
+                {/* Left side - Playback controls */}
+                <div className="flex items-center space-x-4">
+                    <PlayPauseButton
+                        isPlaying={isPlaying}
+                        onToggle={onTogglePlay}
+                    />
 
-                <TimeDisplay
-                    currentTime={currentTime}
-                    duration={duration}
-                />
+                    <TimeDisplay
+                        currentTime={currentTime}
+                        duration={duration}
+                    />
+                </div>
 
-                <VolumeControl
-                    volume={volume}
-                    onChange={onVolumeChange}
-                />
+                {/* Right side - Utility controls */}
+                <div className="flex items-center space-x-4">
+                    <VolumeControl
+                        volume={volume}
+                        onChange={onVolumeChange}
+                        onMuteToggle={onVolumeMuteToggle}
+                    />
 
-                <div className="flex items-center space-x-4 ml-auto">
+                    {chapters && chapters.length > 0 && (
+                        <button
+                            onClick={onToggleChapterMarkers}
+                            className="text-white hover:text-indigo-400 transition-colors"
+                            title={showChapterMarkers ? "Hide Chapter Markers" : "Show Chapter Markers"}
+                        >
+                            <svg 
+                                className="w-6 h-6" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                viewBox="0 0 24 24"
+                            >
+                                <path 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round" 
+                                    strokeWidth={2} 
+                                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                                />
+                                {!showChapterMarkers && (
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M3 3l18 18"
+                                    />
+                                )}
+                            </svg>
+                        </button>
+                    )}
+
                     <FullscreenButton
                         isFullscreen={isFullscreen}
                         onToggle={onToggleFullscreen}

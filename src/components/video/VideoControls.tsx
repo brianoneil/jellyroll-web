@@ -20,6 +20,7 @@ interface VideoControlsProps {
     showCaptions: boolean;
     availableTracks: TextTrack[];
     selectedTrack: string;
+    isSeeking: boolean;
     onTimeUpdate: (time: number) => void;
     onVolumeChange: (volume: number) => void;
     onVolumeMuteToggle: () => void;
@@ -44,6 +45,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
     showCaptions,
     availableTracks,
     selectedTrack,
+    isSeeking,
     onTimeUpdate,
     onVolumeChange,
     onVolumeMuteToggle,
@@ -77,6 +79,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
                 isPlaying={isPlaying}
                 previewTime={previewTime}
                 previewPosition={previewPosition}
+                isSeeking={isSeeking}
             />
 
             <div className="flex items-center justify-between">

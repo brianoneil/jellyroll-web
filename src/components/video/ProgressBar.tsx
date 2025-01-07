@@ -15,6 +15,7 @@ interface ProgressBarProps {
     isPlaying: boolean;
     previewTime: number | null;
     previewPosition: number;
+    isSeeking: boolean;
 }
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
@@ -29,7 +30,8 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     itemId,
     isPlaying,
     previewTime,
-    previewPosition
+    previewPosition,
+    isSeeking
 }) => {
     const progressRef = useRef<HTMLDivElement>(null);
     const previewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,11 +39,26 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     const previewCache = useRef<Map<number, string>>(new Map());
     const [containerWidth, setContainerWidth] = useState(0);
     const [isMoving, setIsMoving] = useState(false);
+    const [seekPosition, setSeekPosition] = useState<number | null>(null);
     const lastPositionRef = useRef<number | null>(null);
     const lastMoveTimeRef = useRef<number>(Date.now());
     const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const MOVEMENT_THRESHOLD = 5; // pixels
     const TIME_THRESHOLD = 200; // milliseconds
+    const [isSeekTransition, setIsSeekTransition] = useState(false);
+
+    // Update seek indicator and transition state based on seeking state
+    useEffect(() => {
+        if (!isSeeking) {
+            setSeekPosition(null);
+            // Keep transition active briefly after seeking ends
+            setTimeout(() => {
+                setIsSeekTransition(false);
+            }, 300);
+        } else {
+            setIsSeekTransition(true);
+        }
+    }, [isSeeking]);
 
     useEffect(() => {
         const previewVideo = previewVideoRef.current;
@@ -137,6 +154,8 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         
         const rect = progressRef.current.getBoundingClientRect();
         const pos = (e.clientX - rect.left) / rect.width;
+        setSeekPosition(e.clientX - rect.left);
+        setIsSeekTransition(true);
         onTimeUpdate(pos * duration);
     };
 
@@ -236,9 +255,25 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                 {/* Progress */}
                 <div 
                     className="absolute top-0 left-0 h-full bg-indigo-500"
-                    style={{ width: `${(currentTime / duration) * 100}%` }}
+                    style={{ 
+                        width: `${(currentTime / duration) * 100}%`,
+                        transition: isSeekTransition ? 'width 300ms ease-out' : 'none'
+                    }}
                 />
                 
+                {/* Seek indicator */}
+                {seekPosition !== null && (
+                    <div 
+                        className="absolute top-1/2 w-3 h-3 rounded-full bg-indigo-500 transition-transform duration-150"
+                        style={{ 
+                            left: seekPosition,
+                            transform: 'translate(-50%, -50%)',
+                            boxShadow: '0 0 4px 2px rgba(99, 102, 241, 0.8), 0 0 8px 4px rgba(99, 102, 241, 0.4)',
+                            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                        }}
+                    />
+                )}
+
                 {/* Chapter Markers */}
                 {showChapterMarkers && chapters?.map((chapter, index) => {
                     const position = (chapter.StartPositionTicks / (duration * 10000000)) * 100;
@@ -308,6 +343,21 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                     </div>
                 )}
             </div>
+
+            <style jsx>{`
+                @keyframes pulse {
+                    0%, 100% {
+                        opacity: 1;
+                        transform: translate(-50%, -50%) scale(1);
+                        box-shadow: 0 0 4px 2px rgba(99, 102, 241, 0.8), 0 0 8px 4px rgba(99, 102, 241, 0.4);
+                    }
+                    50% {
+                        opacity: 0.9;
+                        transform: translate(-50%, -50%) scale(1.1);
+                        box-shadow: 0 0 6px 3px rgba(99, 102, 241, 0.9), 0 0 12px 6px rgba(99, 102, 241, 0.5);
+                    }
+                }
+            `}</style>
         </div>
     );
 };

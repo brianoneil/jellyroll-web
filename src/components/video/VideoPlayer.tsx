@@ -399,6 +399,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ item, api, onClose }) 
                     selectedTrack={selectedTrack}
                     onCaptionToggle={handleCaptionToggle}
                     onTrackSelect={handleTrackSelect}
+                    isSeeking={isSeeking}
                 />
             </div>
         </div>

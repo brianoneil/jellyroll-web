@@ -250,6 +250,18 @@ export const getEpisodes = async (api: JellyfinApi, seasonId: string, userId: st
     }
 };
 
+export const getLowestQualityStreamUrl = (api: JellyfinApi, itemId: string) => {
+    const params = new URLSearchParams({
+        static: 'true',
+        mediaSourceId: itemId,
+        api_key: api.accessToken || '',
+        maxWidth: '160',
+        maxHeight: '90',
+        quality: '5'
+    });
+    return `${api.baseUrl}/Videos/${itemId}/stream.mp4?${params}`;
+};
+
 // Helper function to format runtime
 export const formatRuntime = (runtimeTicks: number) => {
     const seconds = Math.floor(runtimeTicks / 10000000);

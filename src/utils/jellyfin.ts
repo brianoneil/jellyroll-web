@@ -250,6 +250,45 @@ export const getEpisodes = async (api: JellyfinApi, seasonId: string, userId: st
     }
 };
 
+export const getAllLibraryItems = async (api: JellyfinApi, userId: string, parentId: string) => {
+    try {
+        const params = new URLSearchParams({
+            userId,
+            parentId,
+            recursive: 'true',
+            sortBy: 'SortName',
+            sortOrder: 'Ascending',
+            fields: 'PrimaryImageAspectRatio,BasicSyncInfo',
+            imageTypeLimit: '1',
+            enableImageTypes: 'Primary,Backdrop,Thumb',
+            limit: '1000'  // Set a high limit to get all items
+        });
+
+        const response = await fetch(`${api.baseUrl}/Users/${userId}/Items?${params}`, {
+            headers: {
+                'X-MediaBrowser-Token': api.accessToken || '',
+            },
+        });
+
+        if (!response.ok) {
+            throw new JellyfinError(`Failed to fetch media: ${response.statusText}`, response.status);
+        }
+
+        const data = await response.json();
+        
+        // Save debug data
+        await saveDebugData(`library_items_${parentId}`, data.Items || []);
+
+        return data.Items || [];
+    } catch (error: any) {
+        console.error('Error fetching library items:', error);
+        if (error instanceof JellyfinError) {
+            throw error;
+        }
+        throw new JellyfinError('Failed to fetch library items');
+    }
+};
+
 // Helper function to format runtime
 export const formatRuntime = (runtimeTicks: number) => {
     const seconds = Math.floor(runtimeTicks / 10000000);

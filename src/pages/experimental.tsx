@@ -1,11 +1,15 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { createApi, getUserLibraries, getAllLibraryItems, getImageUrl } from '@/utils/jellyfin';
+import { extractUSMovieRating } from '@/utils/ratings';
 
 interface Movie {
     Id: string;
     Name: string;
-    ImageTags?: { [key: string]: string };
+    ImageTags?: { 
+        Primary?: string;
+        Logo?: string;
+    };
     BackdropImageTags?: string[];
     Overview?: string;
     Genres?: string[];
@@ -13,8 +17,178 @@ interface Movie {
     ProductionYear?: number;
     OfficialRating?: string;
     CommunityRating?: number;
+    RunTimeTicks?: number;
     People?: { Name: string, Role: string, Type: string }[];
     Tags?: string[];
+    PremiereDate?: string;
+}
+
+interface MovieCardProps {
+    movie: Movie;
+    api: any;
+    index: number;
+    onClick: (id: string) => void;
+}
+
+const MovieCard = ({ movie, api, index, onClick }: MovieCardProps) => {
+    // Helper function to format runtime
+    const formatRuntime = (ticks?: number) => {
+        if (!ticks) return null;
+        const minutes = Math.floor(ticks / (10000000 * 60));
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return hours > 0 
+            ? `${hours}h ${remainingMinutes}m`
+            : `${minutes}m`;
+    };
+
+    // Helper function to format rating
+    const formatRating = (rating?: number) => {
+        if (!rating) return null;
+        return rating.toFixed(1);
+    };
+
+    return (
+        <div
+            className="movie-card group cursor-pointer animate-fold-in"
+            onClick={() => onClick(movie.Id)}
+            style={{
+                animationDelay: `${index * 100}ms`,
+                perspective: '1000px'
+            }}
+        >
+            <div 
+                className="relative bg-gray-900 rounded-lg overflow-hidden shadow-lg transition-all duration-300 hover:scale-105"
+                style={{
+                    transformStyle: 'preserve-3d',
+                    backfaceVisibility: 'hidden'
+                }}
+            >
+                {/* Poster Image */}
+                {api && movie.ImageTags?.Primary && (
+                    <div className="aspect-[2/3] relative">
+                        <img
+                            src={getImageUrl(api, movie.Id, 'Primary')}
+                            alt={movie.Name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                        />
+                    </div>
+                )}
+
+                {/* Hover Overlay */}
+                <div 
+                    className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300"
+                >
+                    {/* Content Rating Badge */}
+                    {extractUSMovieRating(movie.OfficialRating) && (
+                        <div className="absolute top-2 right-2 bg-black/40 backdrop-blur-sm px-1.5 py-0.5 rounded text-[11px] font-medium text-white">
+                            {extractUSMovieRating(movie.OfficialRating)}
+                        </div>
+                    )}
+
+                    <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col">
+                        {/* Title or Logo */}
+                        {api && movie.ImageTags?.Logo ? (
+                            <div className="h-7 mb-2">
+                                <img
+                                    src={getImageUrl(api, movie.Id, 'Logo' as 'Primary')}
+                                    alt={movie.Name}
+                                    className="h-full w-auto object-contain filter drop-shadow"
+                                />
+                            </div>
+                        ) : (
+                            <h3 className="text-base font-semibold text-white mb-2 line-clamp-1 drop-shadow">
+                                {movie.Name}
+                            </h3>
+                        )}
+
+                        {/* Metadata Row */}
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                            {movie.CommunityRating && (
+                                <div className="flex items-center gap-0.5 bg-yellow-400/10 backdrop-blur-sm px-1.5 py-0.5 rounded text-[13px] font-medium">
+                                    <span className="text-yellow-400">★</span>
+                                    <span className="text-yellow-200">{formatRating(movie.CommunityRating)}</span>
+                                </div>
+                            )}
+                            {movie.ProductionYear && (
+                                <div className="px-1.5 py-0.5 rounded text-[13px] font-medium text-white">
+                                    {movie.ProductionYear}
+                                </div>
+                            )}
+                            {formatRuntime(movie.RunTimeTicks) && (
+                                <div className="text-[13px] font-medium text-white/90">
+                                    {formatRuntime(movie.RunTimeTicks)}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Genres */}
+                        {movie.Genres && movie.Genres.length > 0 && (
+                            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                                {movie.Genres.slice(0, 3).map((genre) => (
+                                    <span 
+                                        key={genre} 
+                                        className="text-[11px] font-medium px-1.5 py-0.5 bg-white/5 backdrop-blur-sm rounded-sm text-white"
+                                    >
+                                        {genre}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Overview */}
+                        {movie.Overview && (
+                            <p className="text-[13px] leading-snug text-white/90 line-clamp-2 font-medium">
+                                {movie.Overview}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Add fuzzy search functions
+function levenshteinDistance(str1: string, str2: string): number {
+    const track = Array(str2.length + 1).fill(null).map(() =>
+        Array(str1.length + 1).fill(null));
+
+    for (let i = 0; i <= str1.length; i++) track[0][i] = i;
+    for (let j = 0; j <= str2.length; j++) track[j][0] = j;
+
+    for (let j = 1; j <= str2.length; j++) {
+        for (let i = 1; i <= str1.length; i++) {
+            const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+            track[j][i] = Math.min(
+                track[j][i - 1] + 1,
+                track[j - 1][i] + 1,
+                track[j - 1][i - 1] + indicator
+            );
+        }
+    }
+    return track[str2.length][str1.length];
+}
+
+function fuzzyMatch(text: string, pattern: string, threshold = 0.3): boolean {
+    if (!text || !pattern) return false;
+    text = text.toLowerCase();
+    pattern = pattern.toLowerCase();
+    
+    // Exact substring match gets highest priority
+    if (text.includes(pattern)) return true;
+    
+    // For very short patterns, require more precise matches
+    if (pattern.length <= 2) {
+        return text.includes(pattern);
+    }
+    
+    const distance = levenshteinDistance(text, pattern);
+    const maxLength = Math.max(text.length, pattern.length);
+    const similarity = 1 - distance / maxLength;
+    
+    return similarity > threshold;
 }
 
 export default function Experimental() {
@@ -27,32 +201,28 @@ export default function Experimental() {
     const gridRef = useRef<HTMLDivElement>(null);
     const [columns, setColumns] = useState(4);
 
-    // Enhanced filter function
+    // Enhanced filter function with fuzzy matching
     const filteredMovies = useMemo(() => {
         if (!searchTerm) return movies;
-        const searchLower = searchTerm.toLowerCase();
+        const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
         
         return movies.filter(movie => {
-            // Create a searchable text from all relevant fields
-            const searchableText = [
+            // Create an array of searchable text chunks
+            const searchableChunks = [
                 movie.Name,
                 movie.Overview,
-                movie.Genres?.join(' '),
-                movie.Studios?.map(s => s.Name).join(' '),
+                ...(movie.Genres || []),
+                ...(movie.Studios?.map(s => s.Name) || []),
                 movie.ProductionYear?.toString(),
                 movie.OfficialRating,
-                movie.Tags?.join(' '),
-                movie.People?.map(p => `${p.Name} ${p.Role}`).join(' ')
-            ]
-                .filter(Boolean)
-                .join(' ')
-                .toLowerCase();
+                ...(movie.Tags || []),
+                ...(movie.People?.map(p => `${p.Name} ${p.Role}`) || [])
+            ].filter((chunk): chunk is string => typeof chunk === 'string');
 
-            // Split search term into words for more flexible matching
-            const searchWords = searchLower.split(/\s+/);
-            
-            // Match if all search words are found in the searchable text
-            return searchWords.every(word => searchableText.includes(word));
+            // Match if any word matches any chunk with fuzzy matching
+            return searchWords.every(searchWord =>
+                searchableChunks.some(chunk => fuzzyMatch(chunk, searchWord))
+            );
         });
     }, [movies, searchTerm]);
 
@@ -189,63 +359,13 @@ export default function Experimental() {
                             style={{ willChange: 'transform' }}
                         >
                             {columnMovies.map((movie, index) => (
-                                <div
+                                <MovieCard
                                     key={movie.Id}
-                                    className="movie-card group cursor-pointer animate-fold-in"
-                                    onClick={() => router.push(`/item/${movie.Id}`)}
-                                    style={{
-                                        animationDelay: `${index * 100}ms`,
-                                        perspective: '1000px'
-                                    }}
-                                >
-                                    <div 
-                                        className="relative bg-gray-900 rounded-lg overflow-hidden shadow-lg transition-all duration-300 hover:scale-105"
-                                        style={{
-                                            transformStyle: 'preserve-3d',
-                                            backfaceVisibility: 'hidden'
-                                        }}
-                                    >
-                                        {api && movie.ImageTags?.Primary && (
-                                            <div className="aspect-[2/3]">
-                                                <img
-                                                    src={getImageUrl(api, movie.Id)}
-                                                    alt={movie.Name}
-                                                    className="w-full h-full object-cover"
-                                                    loading="lazy"
-                                                />
-                                            </div>
-                                        )}
-                                        <div 
-                                            className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300"
-                                        >
-                                            <div className="absolute bottom-0 left-0 right-0 p-4">
-                                                <h3 className="text-lg font-bold text-white mb-2">
-                                                    {movie.Name}
-                                                </h3>
-                                                {movie.Overview && (
-                                                    <p className="text-sm text-gray-200 line-clamp-2">
-                                                        {movie.Overview}
-                                                    </p>
-                                                )}
-                                                <div className="flex flex-wrap gap-2 mt-2">
-                                                    {movie.Genres?.slice(0, 2).map((genre) => (
-                                                        <span 
-                                                            key={genre} 
-                                                            className="text-xs px-2 py-1 bg-white/10 rounded-full"
-                                                        >
-                                                            {genre}
-                                                        </span>
-                                                    ))}
-                                                    {movie.ProductionYear && (
-                                                        <span className="text-xs px-2 py-1 bg-white/10 rounded-full">
-                                                            {movie.ProductionYear}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                    movie={movie}
+                                    api={api}
+                                    index={index}
+                                    onClick={(id) => router.push(`/item/${id}`)}
+                                />
                             ))}
                         </div>
                     ))}

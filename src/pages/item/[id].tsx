@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { createApi, getItemDetails, getSeasons, getEpisodes, getImageUrl, getStreamUrl, getLowestQualityStreamUrl, formatRuntime, JellyfinError } from '@/utils/jellyfin';
 import { VideoPlayer } from '../../components/video/VideoPlayer';
 import { CaptionIndicator } from '../../components/video/CaptionIndicator';
+import { extractUSMovieRating } from '@/utils/ratings';
 
 interface Person {
     Id: string;
@@ -385,8 +386,9 @@ export default function ItemDetail() {
                                         <div className="mt-2 flex items-center space-x-4 text-sm">
                                             {item?.ProductionYear && <span>{item.ProductionYear}</span>}
                                             {item?.RunTimeTicks && <span>{formatRuntime(item.RunTimeTicks)}</span>}
-                                            {item?.OfficialRating && <span>{item.OfficialRating}</span>}
-                                            {console.log('Item data:', item)}
+                                            {extractUSMovieRating(item?.OfficialRating) && (
+                                                <span>{extractUSMovieRating(item?.OfficialRating)}</span>
+                                            )}
                                             <CaptionIndicator mediaStreams={item?.MediaStreams} />
                                         </div>
                                         {item?.Genres && (

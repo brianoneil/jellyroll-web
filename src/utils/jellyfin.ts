@@ -124,8 +124,13 @@ export const getLatestMedia = async (api: JellyfinApi, userId: string, parentId:
     }
 };
 
-export const getImageUrl = (api: JellyfinApi, itemId: string, imageType: 'Primary' | 'Backdrop' | 'Thumb' = 'Primary') => {
-    return `${api.baseUrl}/Items/${itemId}/Images/${imageType}?api_key=${api.accessToken}`;
+export const getImageUrl = (api: JellyfinApi, itemId: string, imageType: 'Primary' | 'Backdrop' | 'Thumb' | 'Logo' = 'Primary') => {
+    const params = new URLSearchParams({
+        fillHeight: imageType === 'Logo' ? '60' : '400',
+        quality: '90',
+        api_key: api.accessToken || ''
+    });
+    return `${api.baseUrl}/Items/${itemId}/Images/${imageType}?${params}`;
 };
 
 export const getStreamUrl = (api: JellyfinApi, itemId: string) => {
@@ -271,8 +276,8 @@ export const getAllLibraryItems = async (api: JellyfinApi, userId: string, paren
             sortBy: 'SortName',
             sortOrder: 'Ascending',
             fields: 'PrimaryImageAspectRatio,BasicSyncInfo',
-            imageTypeLimit: '1',
-            enableImageTypes: 'Primary,Backdrop,Thumb',
+            imageTypeLimit: '3',
+            enableImageTypes: 'Primary,Backdrop,Thumb,Logo',
             limit: '1000'  // Set a high limit to get all items
         });
 

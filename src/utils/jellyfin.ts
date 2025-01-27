@@ -81,6 +81,11 @@ export const getUserLibraries = async (api: JellyfinApi, userId: string) => {
         if (error instanceof JellyfinError) {
             throw error;
         }
+        if (error instanceof Error) {
+            console.error('Detailed error:', error.message, error.stack);
+        } else {
+            console.error('Unknown error:', error);
+        }
         throw new JellyfinError('Failed to fetch libraries');
     }
 };
@@ -267,9 +272,10 @@ export const getLowestQualityStreamUrl = (api: JellyfinApi, itemId: string) => {
     return `${api.baseUrl}/Videos/${itemId}/stream.mp4?${params}`;
 };
 
-export const getAllLibraryItems = async (api: JellyfinApi, userId: string, parentId: string) => {
+export const getAllLibraryItems = async (api: JellyfinApi, userId: string, parentId: string, options: { IncludeItemTypes?: string[] } = {}) => {
     try {
         const params = new URLSearchParams({
+                    ...(options.IncludeItemTypes && { IncludeItemTypes: options.IncludeItemTypes.join(',') }),
             userId,
             parentId,
             recursive: 'true',
@@ -302,11 +308,15 @@ export const getAllLibraryItems = async (api: JellyfinApi, userId: string, paren
         if (error instanceof JellyfinError) {
             throw error;
         }
+        if (error instanceof Error) {
+            console.error('Detailed error:', error.message, error.stack);
+        } else {
+            console.error('Unknown error:', error);
+        }
         throw new JellyfinError('Failed to fetch library items');
     }
 };
 
-// Helper function to format runtime
 export const formatRuntime = (runtimeTicks: number) => {
     const seconds = Math.floor(runtimeTicks / 10000000);
     const hours = Math.floor(seconds / 3600);
